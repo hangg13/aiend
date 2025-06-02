@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>놓고가지마 - BLE + 푸시 알림</title>
+</head>
+<body>
+  <h1>BLE 태그 찾기 + 웹 푸시 알림 테스트</h1>
+
+  <button id="btnRequest">푸시 알림 권한 요청 및 토큰 받기</button>
+  <p id="status"></p>
+  <p id="warning" style="color: red; font-weight: bold;"></p>
+
+  <!-- Firebase SDK (호환 버전) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-compat.js"></script>
+
+  <script>
+    // 여기에 Firebase 콘솔에서 복사한 내 프로젝트 정보 넣었습니다.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDY9DMHdqb9vLYbF1e3OrByz77olFkbvMs",
+      authDomain: "aiproject-e81b4.firebaseapp.com",
+      projectId: "aiproject-e81b4",
+      storageBucket: "aiproject-e81b4.firebasestorage.app",
+      messagingSenderId: "786735401727",
+      appId: "1:786735401727:web:de79ad6866c82c8d395aca",
+      measurementId: "G-CHS9ZE8N9X"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
+
+    async function requestPermissionAndGetToken() {
+      const statusEl = document.getElementById('status');
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          statusEl.textContent = '알림 권한이 거부되었습니다.';
+          return;
+        }
+
+        // 서비스워커 등록
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        messaging.useServiceWorker(registration);
+
+        // 아래 VAPID 키도 내 Firebase 콘솔에서 복사한 키로 넣었습니다.
+        const vapidKey = "BGR_w0NzEz0eVvAqz2mDJH4po6zjvF2nr1lYkOCz-NiIFQXM2ml2A4-JvewLr95LnXPxyHLv5dX_aq6Ju7yc8qY";
+
+        const currentToken = await messaging.getToken({ vapidKey });
+
+        if (currentToken) {
+          statusEl.textContent = '푸시 토큰을 받았습니다! 콘솔을 확인하세요.';
+          console.log('FCM 토큰:', currentToken);
+          // 서버에 토큰 전송하는 코드는 추가 가능
+        } else {
+          statusEl.textContent = '토큰을 받지 못했습니다.';
+        }
+      } catch (error) {
+        statusEl.textContent = '오류: ' + error;
+      }
+    }
+
+    document.getElementById('btnRequest').addEventListener('click', requestPermissionAndGetToken);
+
+    // 기존 BLE 연결 끊김 알림 예시
+    function onDisconnected() {
+      const msg = "⚠️ BLE 기기와 연결이 끊겼습니다! 물건이 멀어진 것 같아요!";
+      document.getElementById("warning").textContent = msg;
+
+      if (navigator.vibrate) {
+        navigator.vibrate([300, 100, 300]);
+      }
+
+      if (Notification.permission === "granted") {
+        new Notification("놓고가지마", {
+          body: msg,
+          icon: "https://cdn-icons-png.flaticon.com/512/2099/2099078.png"
+        });
+      } else {
+        alert(msg);
+      }
+    }
+  </script>
+</body>
+</html>
